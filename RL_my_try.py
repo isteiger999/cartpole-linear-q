@@ -4,9 +4,9 @@ import gymnasium as gym
 env = gym.make("CartPole-v1", render_mode=None)
 state, info = env.reset()
 done = False
-epsilon = 0.15
-alpha = 0.05  # learning rate
-gamma = 0.9  # discount factor
+epsilon = 0.2
+alpha = 0.00005  # learning rate
+gamma = 0.95  # discount factor
 
 
 def define_Q(Q, state, action):
@@ -24,11 +24,11 @@ def Q_learning_param(Q, state, action, next_state, reward):
     phi = np.array([state[0], state[1], state[2], state[3], np.sin(state[2]), np.cos(state[2]), state[0]**2, state[1]**2, state[2]**2, state[3]**2, state[0]*state[2], state[1]*state[3]]).reshape((12, 1))
 
     if action == 1:
-        theta_next = Q["th1"] + alpha * (float(Q["th1"].T@phi) - Q_plus) * phi
+        theta_next = Q["th1"] - alpha * (float(Q["th1"].T@phi) - Q_plus) * phi
         Q["th1"] = theta_next #update theta
         Q["1"] = define_Q(Q, state, 1) #update Q value itself
     elif action == 0:
-        theta_next = Q["th2"] + alpha * (float(Q["th2"].T@phi) - Q_plus) * phi
+        theta_next = Q["th2"] - alpha * (float(Q["th2"].T@phi) - Q_plus) * phi
         Q["th2"] = theta_next
         Q["0"] = define_Q(Q, state, 0)
 
@@ -57,7 +57,7 @@ Q = {'1': float(phi1.T @ th1), '0': float(phi2.T @ th2), "th1": th1, "th2": th2}
 
 def train_Q():
 
-    Episodes = 10000
+    Episodes = 1000
 
     for episode in range(Episodes):
         state, info = env.reset()
@@ -79,9 +79,7 @@ def train_Q():
 
             done = terminated or truncated  # terminated: means state exceeded limit, terminated: means max time reached (but stable zone wasn't left)
             state = next_state
-            #print("State:", state, "Reward:", reward)
-
-    #env.close()  # closes the render window when done
+            print("State:", state, "Reward:", reward)
 
 # Train Q-function
 
