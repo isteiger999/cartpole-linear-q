@@ -3,37 +3,44 @@ import gymnasium as gym
 
 env = gym.make("CartPole-v1", render_mode=None)
 state, info = env.reset()
+state = np.divide(state, np.array([4.8, 20, 0.20943951, 20]))
 done = False
-epsilon = 0.2
 alpha = 0.00005  # learning rate
 gamma = 0.95  # discount factor
+Episodes = 20000 # for training (Q function convergence)
 
+#### parametrization of Q:
+dim = 12
+def phi_structure(state):
+    return np.array([state[0], state[1], state[2], state[3], np.sin(state[2]), np.cos(state[2]), state[0]**2, state[1]**2, state[2]**2, state[3]**2, state[0]*state[2], state[1]*state[3]])
+####
 
 def define_Q(Q, state, action):
-        phi = np.array([state[0], state[1], state[2], state[3], np.sin(state[2]), np.cos(state[2]), state[0]**2, state[1]**2, state[2]**2, state[3]**2, state[0]*state[2], state[1]*state[3]]).reshape((12, 1))
+        phi = phi_structure(state).reshape((dim, 1))
         if action == 0:
-            theta = Q["th1"]
+            theta = Q["th0"]
             return float(phi.T @ theta)
         else:
-            theta = Q["th2"]
+            theta = Q["th1"]
             return float(phi.T @ theta)
 
 def Q_learning_param(Q, state, action, next_state, reward):
 
-    Q_plus = reward + gamma * max(define_Q(Q, next_state, 0), define_Q(Q, next_state, 1))
-    phi = np.array([state[0], state[1], state[2], state[3], np.sin(state[2]), np.cos(state[2]), state[0]**2, state[1]**2, state[2]**2, state[3]**2, state[0]*state[2], state[1]*state[3]]).reshape((12, 1))
+    Q_plus = reward + gamma * max(define_Q(Q, next_state, 0), define_Q(Q, next_state, 1)) # off-policy
+    #Q_plus = reward + gamma * define_Q(Q, next_state, 0)  # on-policy
+    phi = phi_structure(state).reshape((dim, 1))
 
     if action == 1:
-        theta_next = Q["th1"] - alpha * (float(Q["th1"].T@phi) - Q_plus) * phi
-        Q["th1"] = theta_next #update theta
+        theta_next = Q["th0"] - alpha * (float(Q["th0"].T@phi) - Q_plus) * phi
+        Q["th0"] = theta_next #update theta
         Q["1"] = define_Q(Q, state, 1) #update Q value itself
     elif action == 0:
-        theta_next = Q["th2"] - alpha * (float(Q["th2"].T@phi) - Q_plus) * phi
-        Q["th2"] = theta_next
+        theta_next = Q["th1"] - alpha * (float(Q["th1"].T@phi) - Q_plus) * phi
+        Q["th1"] = theta_next
         Q["0"] = define_Q(Q, state, 0)
 
     
-def epsilon_greedy(Q):
+def epsilon_greedy(Q, epsilon):
     random = np.random.rand(1)
     if random <= epsilon:
          if np.random.rand(1) <= 0.5:
@@ -49,18 +56,19 @@ def epsilon_greedy(Q):
          
      
 # Initialisation    
-th1, th2 = np.zeros((12,1)), np.zeros((12,1))  # parameter vectors for action 0 and 1
-phi1 = np.array([state[0], state[1], state[2], state[3], np.sin(state[2]), np.cos(state[2]), state[0]**2, state[1]**2, state[2]**2, state[3]**2, state[0]*state[2], state[1]*state[3]]).reshape((12, 1))
-phi2 = np.array([state[0], state[1], state[2], state[3], np.sin(state[2]), np.cos(state[2]), state[0]**2, state[1]**2, state[2]**2, state[3]**2, state[0]*state[2], state[1]*state[3]]).reshape((12, 1))
-Q = {'1': float(phi1.T @ th1), '0': float(phi2.T @ th2), "th1": th1, "th2": th2}
+th0, th1 = np.zeros((dim,1)), np.zeros((dim,1))  # parameter vectors for action 0 and 1
+phi1 = phi_structure(state).reshape((dim, 1))
+phi2 = phi1
+Q = {'1': float(phi1.T @ th0), '0': float(phi2.T @ th1), "th0": th0, "th1": th1}
 
 
 def train_Q():
 
-    Episodes = 1000
+    epsilon = 0.18
 
     for episode in range(Episodes):
         state, info = env.reset()
+        state = np.divide(state, np.array([4.8, 20, 0.20943951, 20]))
         done = False
         print(episode)
 
@@ -68,9 +76,13 @@ def train_Q():
             env.render()  # shows the cart-pole visually
 
             # sample an action
-            action = epsilon_greedy(Q)
+            #if episode >= 15000:
+                #epsilon = 0.999*epsilon
+
+            action = epsilon_greedy(Q, epsilon)
 
             next_state, reward, terminated, truncated, info = env.step(action)
+            next_state = np.divide(next_state, np.array([4.8, 20, 0.20943951, 20]))
             # Update Q-function
             if action == 0:
                 Q_learning_param(Q, state, action, next_state, reward)
@@ -79,7 +91,7 @@ def train_Q():
 
             done = terminated or truncated  # terminated: means state exceeded limit, terminated: means max time reached (but stable zone wasn't left)
             state = next_state
-            print("State:", state, "Reward:", reward)
+            #print("State:", state, "Reward:", reward)
 
 # Train Q-function
 
